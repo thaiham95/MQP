@@ -1,0 +1,98 @@
+#include "DualMC33926MotorShield.h"
+
+DualMC33926MotorShield md;
+unsigned long time1;
+int motorSpeed = 300;
+unsigned long last = 0;
+unsigned long diff = 0;
+int analogPin = 2;     // potentiometer wiper (middle terminal) connected to analog pin 3
+int val = 0;           // variable to store the value read
+int prePos = 0;
+int count = 0;
+int aMax[3] = {600,601,602};
+int aMin[3] = {100,101,102};
+void stopIfFault()
+{
+  if (md.getFault())
+  {
+    Serial.println("fault");
+    while(1);
+  }
+}
+
+void setup()
+{
+  Serial.begin(115200);
+  Serial.println("Dual MC33926 Motor Shield");
+  md.init();
+}
+
+void loop()
+{
+//  time1 = millis();
+//  diff = time1-last;
+
+
+  val = analogRead(analogPin);    // read the input pin
+  if ( ((val == aMax[0])|| (val == aMax[1]) || (val == aMax[2])) && (count == 1))
+   {
+
+      if (motorSpeed > 0)
+      {
+         motorSpeed = 0- motorSpeed;  
+      }
+      else if (motorSpeed < 0)
+      {
+        motorSpeed = motorSpeed + 2*abs(motorSpeed);
+      } 
+    Serial.print("pos out: ");
+    Serial.println(val);
+    Serial.print("speed is: ");
+    Serial.println(motorSpeed);
+    count = 0;
+   }
+   else if ( ((val == aMin[0])|| (val == aMin[1]) || (val == aMin[2])) && (count == 0))
+   {
+
+     if (motorSpeed > 0)
+      {
+        motorSpeed = 0- motorSpeed; 
+      }
+      else if (motorSpeed < 0)
+      {
+        motorSpeed = motorSpeed + 2*abs(motorSpeed);
+      }
+    Serial.print("pos in: ");
+    Serial.println(val);
+    Serial.print("speed is: ");
+    Serial.println(motorSpeed);
+    count = 1;
+   }
+   
+
+   
+//  if ( diff <= 9000)
+//  {
+//  }
+//  else
+//  {
+//    last = time1;
+//    Serial.print("time1 is: ");
+//    Serial.println(time1);
+//    Serial.print("last is: ");
+//    Serial.println(last);
+//    Serial.print("difference is: ");
+//    Serial.println(diff);
+//    if (a == 300) // 300 is out, position 1024
+//    {
+//      a = a - 600;
+//    }
+//    else if (a == -300) // -300 is in, position 100
+//    {
+//      a = a + 600;
+//    }
+//  }
+
+  md.setM1Speed(motorSpeed);
+
+}
