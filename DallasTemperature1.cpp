@@ -70,7 +70,7 @@ uint8_t DallasTemperature::getDeviceCount(void)
 // returns true if address is valid
 bool DallasTemperature::validAddress(uint8_t* deviceAddress)
 {
-  return (_wire->crc8(deviceAddress, 7) == deviceAddress[7]);
+  return (_wire->crc8(deviceAddress, 7) == deviceAddress[7]); // function from onewire 
 }
 
 // finds an address at a given index on the bus
@@ -79,9 +79,9 @@ bool DallasTemperature::getAddress(uint8_t* deviceAddress, uint8_t index)
 {
   uint8_t depth = 0;
 
-  _wire->reset_search();
+  _wire->reset_search(); // onewire
 
-  while (depth <= index && _wire->search(deviceAddress))
+  while (depth <= index && _wire->search(deviceAddress)) // keep searching until depth equal to index, reach desired index devices
   {
     if (depth == index && validAddress(deviceAddress)) return true;
     depth++;
@@ -94,7 +94,7 @@ bool DallasTemperature::getAddress(uint8_t* deviceAddress, uint8_t index)
 bool DallasTemperature::isConnected(uint8_t* deviceAddress)
 {
   ScratchPad scratchPad;
-  return isConnected(deviceAddress, scratchPad);
+  return isConnected(deviceAddress, scratchPad); //same function name right below
 }
 
 // attempt to determine if the device at the given address is connected to the bus
@@ -111,7 +111,7 @@ void DallasTemperature::readScratchPad(uint8_t* deviceAddress, uint8_t* scratchP
   // send the command
   _wire->reset();
   _wire->select(deviceAddress);
-  _wire->write(READSCRATCH);
+  _wire->write(READSCRATCH); // tell devices to READSCRATCH     0xBE  // Read EEPROM
 
   // TODO => collect all comments &  use simple loop
   // byte 0: temperature LSB  
@@ -136,7 +136,7 @@ void DallasTemperature::readScratchPad(uint8_t* deviceAddress, uint8_t* scratchP
   // read the response
 
   // byte 0: temperature LSB
-  scratchPad[TEMP_LSB] = _wire->read();
+  scratchPad[TEMP_LSB] = _wire->read(); //constant defined in onewire, each read function takes in 1 byte then parse into scratchpad structure
 
   // byte 1: temperature MSB
   scratchPad[TEMP_MSB] = _wire->read();
@@ -170,10 +170,10 @@ void DallasTemperature::readScratchPad(uint8_t* deviceAddress, uint8_t* scratchP
   // SCTRACHPAD_CRC
   scratchPad[SCRATCHPAD_CRC] = _wire->read();
 
-  for (uint8_t i=0; i<8; i++) {
+  for (uint8_t i=0; i<8; i++) { 
     //Serial.print("\n 0x"); Serial.print(scratchPad[i], HEX);
   }
-  _wire->reset();
+  _wire->reset(); // why need another reset here???
 }
 
 // writes device's scratch pad
@@ -181,14 +181,14 @@ void DallasTemperature::writeScratchPad(uint8_t* deviceAddress, const uint8_t* s
 {
   _wire->reset();
   _wire->select(deviceAddress);
-  _wire->write(WRITESCRATCH);
+  _wire->write(WRITESCRATCH); // tell devices to WRITESCRATCH    0x4E  // Write to EEPROM
   _wire->write(scratchPad[HIGH_ALARM_TEMP]); // high alarm temp
   _wire->write(scratchPad[LOW_ALARM_TEMP]); // low alarm temp
   // DS18S20 does not use the configuration register
   if (deviceAddress[0] != DS18S20MODEL) _wire->write(scratchPad[CONFIGURATION]); // configuration
   _wire->reset();
   // save the newly written values to eeprom
-  _wire->write(COPYSCRATCH, parasite);
+  _wire->write(COPYSCRATCH, parasite); // onewire
   if (parasite) delay(10); // 10ms delay
   _wire->reset();
 }
@@ -200,7 +200,7 @@ bool DallasTemperature::readPowerSupply(uint8_t* deviceAddress)
   _wire->reset();
   _wire->select(deviceAddress);
   _wire->write(READPOWERSUPPLY);
-  if (_wire->read_bit() == 0) ret = true;
+  if (_wire->read_bit() == 0) ret = true; // read_bit read 1 bit vs read is read a byte
   _wire->reset();
   return ret;
 }
@@ -227,10 +227,14 @@ bool DallasTemperature::setResolution(uint8_t* deviceAddress, uint8_t newResolut
   if (isConnected(deviceAddress, scratchPad))
   {
     // DS18S20 has a fixed 9-bit resolution
-    if (deviceAddress[0] != DS18S20MODEL)
+    if (deviceAddress[0] != DS18S20MODEL) // first bit tells the device model
     {
       switch (newResolution)
       {
+		//  #define TEMP_9_BIT  0x1F //  9 bit
+		//  #define TEMP_10_BIT 0x3F // 10 bit
+		//  #define TEMP_11_BIT 0x5F // 11 bit
+		//  #define TEMP_12_BIT 0x7F // 12 bit
         case 12:
           scratchPad[CONFIGURATION] = TEMP_12_BIT;
           break;
@@ -245,7 +249,7 @@ bool DallasTemperature::setResolution(uint8_t* deviceAddress, uint8_t newResolut
           scratchPad[CONFIGURATION] = TEMP_9_BIT;
           break;
       }
-      writeScratchPad(deviceAddress, scratchPad);
+      writeScratchPad(deviceAddress, scratchPad); // this function is studied above, after changing devices data in scratchpad, needs to write to it to process
     }
 	return true;  // new value set
   }
@@ -297,7 +301,7 @@ uint8_t DallasTemperature::getResolution(uint8_t* deviceAddress)
 //        (2) but the application can do meaningful things in that time
 void DallasTemperature::setWaitForConversion(bool flag)
 {
-	waitForConversion = flag;
+	waitForConversion = flag; // used to requestTemperature with or without delay bool waitForConversion;
 }
 
 // gets the value of the waitForConversion flag
@@ -325,8 +329,8 @@ bool DallasTemperature::isConversionAvailable(uint8_t* deviceAddress)
 {
 	// Check if the clock has been raised indicating the conversion is complete
   	ScratchPad scratchPad;
-  	readScratchPad(deviceAddress, scratchPad);
-	return scratchPad[0];
+  	readScratchPad(deviceAddress, scratchPad); // 
+	return scratchPad[0]; //TEMP_LSB  tells availability of devices
 }	
 
 
