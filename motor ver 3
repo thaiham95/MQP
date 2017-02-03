@@ -1,5 +1,5 @@
 #include "DualMC33926MotorShield.h"
-#define SPEED 300
+#define SPEED 160
 #define MINSPEED 160
 #define MAXSPEED 400
 #define MAXPOS1 1000
@@ -13,10 +13,10 @@ unsigned long time1;
 int motorSpeed = SPEED;
 unsigned long last = 0;
 unsigned long diff = 0;
-int analogPin = 2;     // potentiometer wiper (middle terminal) connected to analog pin 3
-int toggleStop = 5;
-int inSpeedPin = 4;
-int reSpeedPin = 3;
+const int analogPin = 2;     // potentiometer wiper (middle terminal) connected to analog pin 3
+const int toggleStop = 5;
+const int inSpeedPin = 6;
+const int reSpeedPin = 3;
 int val = 0;           // variable to store the value read
 int prePos = 0;
 int count = 0;
@@ -25,7 +25,11 @@ int aMin[3] = {MINPOS1,MINPOS2,MINPOS3};
 int maxFound = MAXPOS2;
 int minFound = MINPOS2;
 int first1 = 0;
-
+int togCounter = 0;
+int inCounter = 0;
+int reCounter = 0;
+int preSpeed;
+int preCount;
 void stopIfFault()
 {
   if (md.getFault())
@@ -77,13 +81,11 @@ void maxMin()
 
 void buttonCheck1() //when press should stop the syringe and maintain all old data, need another press to resume
 {
-  int preSpeed = motorSpeed;
-  int preCount = count;
-  int togCounter = 0;
-  int inCounter = 0;
-  int reCounter = 0;
+
   if  ( (digitalRead(toggleStop) == HIGH) && (togCounter == 0) ) // since initialize counter to 0, make sure that button signal is off at beginning else it will stop immediately
   {
+    preSpeed = motorSpeed;
+    preCount = count;
     motorSpeed = 0;
     count = 3; // not 0 or 1 so that all data kept same
     togCounter++;
@@ -92,43 +94,45 @@ void buttonCheck1() //when press should stop the syringe and maintain all old da
     Serial.print("save count is: ");
     Serial.println(preCount);    
     Serial.println("currently stop");
+    Serial.print("pos stop is: ");
+    Serial.println(val);
     
   }
-
-  
   else if( (digitalRead(toggleStop) == HIGH) && (togCounter == 1)) //toggle on
   {
-    if ( (digitalRead(inSpeedPin) == HIGH) && (inCounter == 0))
+    if ( (digitalRead(inSpeedPin) == LOW) && (inCounter == 0))
     {
       preSpeed = preSpeed + 10;
       if(preSpeed >= MAXSPEED)
       {
-        preSpeed = preSpeed;
+        preSpeed = preSpeed-10;
         Serial.println("max speed reached, stop ");
       }
+          Serial.print("in speed modified is ");
+    Serial.println(preSpeed); 
       inCounter++;
     }
-    else if((digitalRead(inSpeedPin) == LOW) && (inCounter == 1))
+    else if((digitalRead(inSpeedPin) == HIGH) && (inCounter == 1))
     {
       inCounter = 0;
     }
 
-    if ( (digitalRead(reSpeedPin) == HIGH) && (reCounter == 0))
+    if ( (digitalRead(reSpeedPin) == LOW) && (reCounter == 0))
     {
       preSpeed = preSpeed - 10;
       if(preSpeed <= MINSPEED)
       {
-        preSpeed = preSpeed;
+        preSpeed = preSpeed+10;
         Serial.println("min speed reached, stop ");
       }
+          Serial.print("re speed modified is ");
+    Serial.println(preSpeed); 
       reCounter++;
     }
-    else if((digitalRead(reSpeedPin) == LOW) && (reCounter == 1))
+    else if((digitalRead(reSpeedPin) == HIGH) && (reCounter == 1))
     {
       reCounter = 0;
-    }
-    Serial.print("current speed modified is ");
-    Serial.println(preSpeed);   
+    }  
   }
 
   
@@ -186,10 +190,10 @@ if ((val ==  maxFound) && (count == 1))
       {
         motorSpeed = motorSpeed + 2*abs(motorSpeed);
       } 
-    Serial.print("pos out: ");
-    Serial.println(val);
-    Serial.print("speed is: ");
-    Serial.println(motorSpeed);
+//    Serial.print("pos out: ");
+//    Serial.println(val);
+//    Serial.print("speed is: ");
+//    Serial.println(motorSpeed);
     count = 0;
    }
 //   else if ( ((val == aMin[0])|| (val == aMin[1]) || (val == aMin[2])) && (count == 0))
@@ -199,14 +203,15 @@ if ((val ==  maxFound) && (count == 1))
       {
         motorSpeed = 0- motorSpeed; 
       }
-    Serial.print("pos in: ");
-    Serial.println(val);
-    Serial.print("speed is: ");
-    Serial.println(motorSpeed);
+//    Serial.print("pos in: ");
+//    Serial.println(val);
+//    Serial.print("speed is: ");
+//    Serial.println(motorSpeed);
     count = 1;
    }
 
   buttonCheck1();
+
   md.setM1Speed(motorSpeed);
 
 }
