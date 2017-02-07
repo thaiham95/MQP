@@ -45,11 +45,16 @@
   int val1 = 0;
   int val2 = 0;
   int val3 = 0;
+  int val4 = 0;
   int chosenVal = 0;
   int exceptCounter = 0;
   int release1 = 0; 
   int preSpeed3 = 0;
   int loopCounter1 = 0;
+  int maxCounter = 0;
+         int data1;
+       int data2;
+       int data3;
   void stopIfFault()
   {
     if (md.getFault())
@@ -205,6 +210,8 @@
         int maxFound = MAXPOS2;
        maxMin();
      int limit = maxFound-50;   
+     int top = maxFound + 10;
+     int bottom = maxFound - 10;
     int data = digitalRead(pushPullPin) ;
     int tog = digitalRead(toggleStop);
     val = analogRead(analogPin);    // read the input pin, need to be before init else init has no val data
@@ -225,6 +232,21 @@
   //**High pin will be kept until reach max point, high will keep syringe stay at max
   //**Turn low to travel back to 0ml position
         //********************************************************8
+        if ( (val > maxFound) && (maxCounter <= 1) )
+        {
+          maxFound = val;
+          maxCounter = maxCounter + 1;
+          data1 = maxFound + 1;
+          data2 = maxFound;
+          data3 = maxFound - 1;
+          Serial.println("compare");
+          Serial.print("data 1 is ");
+          Serial.println(data1);
+          Serial.print("data 2 is ");
+          Serial.println(data2);
+          Serial.print("data 3 is ");
+          Serial.println(data3);
+        }
    if (tog == HIGH)
    {     
     if (loopCounter1 == 0)
@@ -233,15 +255,14 @@
       md.setM1Speed(motorSpeed);
       Serial.println("loopCounter1 ");
       Serial.println(loopCounter1);
-         loopCounter1 = loopCounter1 + 1;
+      loopCounter1 = loopCounter1 + 1;
+      delay(50);
     }
-  if (( (val == 830) || (val == 831) || (val == 832) || (val1 == maxFound) ) && (count == 1))
+  if ( ((val == data1) || (val == data2)|| (val == data3)) && (count == 1))
      {
             //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-            Serial.println("ere");
       if  ( (data == 0) && (pushPullCounter == 1) )
       {
-        Serial.println("afadfadsf");
              if (preSpeed2 < 0)
         {
           motorSpeed = preSpeed2;
@@ -258,19 +279,16 @@
       {
         preSpeed2 = preSpeed2 + motorSpeed;
         motorSpeed = 0;
-         Serial.println("waiting at max");
-         Serial.print("limit is ");
-         Serial.println(limit);
-         Serial.print("val is ");
-         Serial.println(val);
-         Serial.print("max is ");
-         Serial.println(maxFound);
+        Serial.println("waiting at max");
+        Serial.print("val is ");
+        Serial.println(val);
+        md.setM1Speed(motorSpeed);
       }
           //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^6
      }
 
      //***********************************************
-     else if ( (val1 == minFound) && (count == 0))
+     else if ( (val4 == minFound) && (count == 0))
      {
       //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
      if  ( (data == 1) && (pushPullCounter == 0) )
@@ -284,7 +302,8 @@
           preSpeed2 = 0;
           release1 = 0;
           exceptCounter = 0;
-          Serial.println("returning in 1sec from Min");
+          val4 = 0;
+          maxCounter = 0;
         }
       }
       else if (( data == 0) && (pushPullCounter == 0) )
@@ -296,74 +315,46 @@
       
        //^^^^^^^^^^^^^^^^^
      }
-     else
+     else if (val < 300)
      {
 
-   while ( digitalRead(pausePin)== LOW)
-   {
-      Serial.println("waiting to toggle ");
-      Serial.print("val is " );
-      Serial.println(val);    
-      Serial.print("limit is " );
-      Serial.println(limit);  
-   }
+//   while ( digitalRead(pausePin)== LOW)
+//   {
+//      Serial.println("waiting to toggle ");
+//      Serial.print("val is " );
+//      Serial.println(val);    
+//      Serial.print("limit is " );
+//      Serial.println(limit);  
+//   }
       if (exceptCounter > 5)
       {
         int haha  = (val1+val2+val3)/3;
       if ( ((val1 > val2) && (val2 > val3)) || ((val1 < val2) && (val2 < val3)) )
       {
-        Serial.println("moving");
       }
       else
       {
-        Serial.print("limit is ");
-        Serial.println(limit);
-        Serial.print("haha is ");
-        Serial.println(haha);
-         release1 = 1;
         if (haha < limit)
         {
-          val1 = minFound;
+          val4 = minFound;
         }
         else if (haha > limit)
         {
-           Serial.println("maxFoundfdfd");
-          val1 = maxFound;
+          val4 = maxFound;
         }
       }  
      }
      exceptCounter++;
      }
-//           Serial.println("*******************************");
-//      Serial.print("exceptCounter is ");
-//      Serial.println(exceptCounter);
-//      Serial.print("push counter is ");
-//      Serial.println(pushPullCounter);
-//              Serial.print("val is ");
-//        Serial.println(val);   
-//        Serial.print("minFound is ");
-//        Serial.println(minFound);
-//        Serial.print("count is ");
-//        Serial.println(count);
-//                Serial.print("val1 is ");
-//        Serial.println(val1);
-//                Serial.print("val2 is ");
-//        Serial.println(val2);
-//                Serial.print("val3 is ");
-//        Serial.println(val3);
-//        Serial.print("prespeed is ");
-//        Serial.println(preSpeed2);
-//        Serial.println("motor speed is ");
-//        Serial.println(motorSpeed);
-//      Serial.println("*******************************"); 
    }
    else
    {
     motorSpeed = 0;
    }
     //******************************************8
-    
 //    buttonCheck1();
+  Serial.print("val data is ");
+  Serial.println(val);
     md.setM1Speed(motorSpeed);
   
   }
