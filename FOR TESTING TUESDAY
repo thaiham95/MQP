@@ -1,5 +1,9 @@
 #include "DualMC33926MotorShield.h"
-  #define SPEED 130
+//********* Toggle one can be used to change direction of motor
+//********* Toggle 2 is used to stop/resume the motor action
+//********* While toggle 2 used to stop, we can increase or decrease the speed
+//******** After done changing the speed, you can resume the system
+  #define SPEED 130 // MODIFY YOUR DESIRED SPEED HERE, SPEED CAN ONLY FROM 0 TO 400
   #define MINSPEED 120
   #define MAXSPEED 400
   #define VOL04   825
@@ -20,7 +24,7 @@
   const int analogPin = 2;     // potentiometer wiper (middle terminal) connected to analog pin 3
   const int toggleStop = 5;
   const int inSpeedPin = 6;
-  const int reSpeedPin = 3;
+  const int reSpeedPin = 13;
   const int pushPullPin = 11;
   const int pausePin = 13;
   int val = 0;           // variable to store the value read
@@ -28,8 +32,8 @@
   int count = 0;
   int first1 = 0;
   int togCounter = 0;
-  int inCounter = 0;
-  int reCounter = 0;
+  int inCounter = 1;
+  int reCounter = 1;
   int preSpeed;
   int preCount;
   int pushPullCounter = 0;
@@ -102,17 +106,22 @@
       motorSpeed = 0;
       count = 3; // not 0 or 1 so that all data kept same
       togCounter++;
+            inCounter = 1;
+      reCounter = 1;
+      Serial.println("********");
       Serial.print("save speed is: ");
       Serial.println(preSpeed);
       Serial.print("save count is: ");
       Serial.println(preCount);    
-      Serial.println("currently stop");
-      Serial.print("pos stop is: ");
-      Serial.println(val);
+      Serial.println("current position");   
+      Serial.println(val);    
+      Serial.println("********");
+      Serial.println();
       
     }
     else if( (dataToggle == HIGH) && (togCounter == 1)) //toggle on
     {
+      delay(100);
       if ( (dataIn == LOW) && (inCounter == 0) )
       {
         if (preSpeed > 0)
@@ -159,12 +168,14 @@
       motorSpeed = preSpeed;
       count      = preCount;
       togCounter    = 0;
-  
+      Serial.println("********");
       Serial.print("resume speed is: ");
       Serial.println(motorSpeed);
       Serial.print("resume count is: ");
       Serial.println(count);
-      Serial.println("resuming in 1 second");
+      Serial.print("pos stop is: ");
+      Serial.println(val);
+      Serial.println("********");
     }
     else
     {
@@ -222,8 +233,6 @@
       motorSpeed = motorSpeed;
     }
   }
-
-
     buttonCheck1();
     md.setM1Speed(motorSpeed);
   }
