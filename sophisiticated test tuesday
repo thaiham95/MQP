@@ -1,0 +1,338 @@
+  #include "DualMC33926MotorShield.h"
+  #define SPEED 160
+  #define MINSPEED 160
+  #define MAXSPEED 400
+  #define VOL04   830
+  #define VOL03   708
+  #define VOL02   573
+  #define VOL01   450
+  #define VOL005  372
+  #define VOL002  32
+  #define MINPOS1 293
+  #define MINPOS2 270
+  #define MINPOS3 295
+  DualMC33926MotorShield md;
+  unsigned long time1;
+  int chosenVolume = VOL04;
+  int motorSpeed = SPEED;
+  unsigned long last = 0;
+  unsigned long diff = 0;
+  const int analogPin = 2;     // potentiometer wiper (middle terminal) connected to analog pin 3
+  const int toggleStop = 5;
+  const int inSpeedPin = 6;
+  const int reSpeedPin = 3;
+  const int pushPullPin = 11;
+  const int pausePin = 13;
+  int minFound = MINPOS2;
+  int val = 0;           // variable to store the value read
+  int prePos = 0;
+  int count = 0;
+  int first1 = 0;
+  int togCounter = 0;
+  int inCounter = 0;
+  int reCounter = 0;
+  int preSpeed;
+  int preCount;
+  int pushPullCounter = 0;
+  int preSpeed2 = 0;
+  int dataToggle;
+  int dataRe;
+  int dataIn;
+  int val1 = 0;
+  int val2 = 0;
+  int val3 = 0;
+  int val4 = 0;
+  int chosenVal = 0;
+  int preSpeed3 = 0;
+  int loopCounter1 = 0;
+  int maxCounter = 0;
+  int data1;
+  int data2;
+  int data3;
+  int maxFound = chosenVolume;
+  int currentTime = 0;
+  int preTime = 0;
+  int timeDiff = 0;
+  int preHa = 0;
+  int aftHa = 0;
+  void stopIfFault()
+  {
+    if (md.getFault())
+    {
+      Serial.println("fault");
+      while(1);
+    }
+  }
+  
+  void speedInit()
+  {
+      if (val <= minFound)
+      {
+        motorSpeed = 0-SPEED; // currently below or at min, need to go out cross min and stop at max => want to skip the first = set count to 1
+        count = 1;            
+      }
+      else if  (val >= maxFound)
+      {
+        motorSpeed = SPEED;  //  currently above or at max, need to go in cross max and stop at min, but meet max first => want to skip the first = set count to 0
+        count = 0;
+      }
+      else if (val< maxFound && val > minFound)
+      {
+        motorSpeed = SPEED; // now moving into,will meet min first and need to reverse, count must = 0 be considered at min
+        count = 0;
+      }
+      preSpeed3 = motorSpeed;
+      first1++;
+      val3 = val;
+      val2 = val;
+      val1 = val;
+      Serial.println("HAHAH");
+      Serial.print("first SPEED is: ");
+      Serial.println(motorSpeed);
+      Serial.print("position is: ");
+      Serial.println(val);
+  }
+   
+  void buttonCheck1() //when press should stop the syringe and maintain all old data, need another press to resume
+  {
+    dataRe = digitalRead(reSpeedPin);
+    dataIn = digitalRead(inSpeedPin);
+    if  ( (dataToggle == HIGH) && (togCounter == 0) ) // since initialize counter to 0, make sure that button signal is off at beginning else it will stop immediately
+    {
+      preSpeed = motorSpeed;
+      preCount = count;
+      motorSpeed = 0;
+      count = 3; // not 0 or 1 so that all data kept same
+      togCounter++;
+      Serial.print("save speed is: ");
+      Serial.println(preSpeed);
+      Serial.print("save count is: ");
+      Serial.println(preCount);    
+      Serial.println("currently stop");
+      Serial.print("pos stop is: ");
+      Serial.println(val);
+      
+    }
+    else if( (dataToggle == HIGH) && (togCounter == 1)) //toggle on
+    {
+      if ( (dataIn == LOW) && (inCounter == 0) )
+      {
+        preSpeed = preSpeed + 10;
+        if(preSpeed >= MAXSPEED)
+        {
+          preSpeed = preSpeed-10;
+          Serial.println("max speed reached, stop ");
+        }
+            Serial.print("in speed modified is ");
+      Serial.println(preSpeed); 
+        inCounter++;
+      }
+      else if((dataIn == HIGH) && (inCounter == 1))
+      {
+        inCounter = 0;
+      }
+  
+      if ( (dataRe == LOW) && (reCounter == 0))
+      {
+        preSpeed = preSpeed - 10;
+        if(preSpeed <= MINSPEED)
+        {
+          preSpeed = preSpeed+10;
+          Serial.println("min speed reached, stop ");
+        }
+            Serial.print("re speed modified is ");
+      Serial.println(preSpeed); 
+        reCounter++;
+      }
+      else if((dataRe == HIGH) && (reCounter == 1))
+      {
+        reCounter = 0;
+      }  
+    }
+  
+    
+    else if ( (dataToggle == LOW) && (togCounter == 1)) // toggle off
+    {
+      motorSpeed = preSpeed;
+      count      = preCount;
+      togCounter    = 0;
+  
+      Serial.print("resume speed is: ");
+      Serial.println(motorSpeed);
+      Serial.print("resume count is: ");
+      Serial.println(count);
+      Serial.println("resuming in 1 second");
+    }
+    else
+    {
+      
+    }
+    
+  }
+  //1st cases: max <----- 1023: want to keep it going, if at max, if speed > 0 then do nothing, count must = 1
+  //2nd cases: min <----- max : want to reverse it   , if at min, if speed > 0 then reverse, count must = 0
+  //3rd cases: 0   -----> min : want to keep it going, if at min, if speed < 0 then do nothing, count must = 0
+  //4th cases: min -----> max : want to reverse it   , if at max, if speed < 0 then reverse , count must = 1
+  //5th cases: at min         : want to set count to 0 so that below function will turn it into 1 and not change negative speed
+  //6th cases: at max         : want to set count to 1 so that below function will turn it into 0 and not change positive speed
+  
+  void setup()
+  {
+    Serial.begin(9600);
+    Serial.println("Dual MC33926 Motor Shield");
+    pinMode(toggleStop, INPUT);
+    pinMode(inSpeedPin, INPUT);
+    pinMode(reSpeedPin, INPUT);
+    pinMode(pushPullPin, INPUT);
+    pinMode(pausePin, INPUT);
+    md.init();
+  }
+ 
+  void loop()
+  {   
+     int limit = maxFound-50;   
+    int data = digitalRead(pushPullPin) ;
+    int tog = digitalRead(toggleStop);
+    val = analogRead(analogPin);    // read the input pin, need to be before init else init has no val data
+    val3 = val2;
+    val2 = val1;
+    val1 = val;
+ 
+      if (first1 == 0)
+    {
+      speedInit();
+    }
+  //******************* Main operation ************************
+  //**OPERATION is first syringe needs to travel to min point and wait there, switch at min must be 0
+  //**When the switch on, syringe travel out, pushPullpin is now high
+  //**High pin will be kept until reach max point, high will keep syringe stay at max
+  //**Turn low to travel back to 0ml position
+        //********************************************************8
+
+   if (tog == HIGH)
+   {     
+    if (loopCounter1 == 0)
+    {
+      motorSpeed = preSpeed3;
+      md.setM1Speed(motorSpeed);
+      Serial.println("loopCounter1 ");
+      Serial.println(loopCounter1);
+      loopCounter1 = loopCounter1 + 1;
+      delay(50);
+    }
+
+         if ( (val > chosenVolume) && (maxCounter <= 1) )
+        {
+          maxFound = val;
+          maxCounter = maxCounter + 1;
+          data1 = maxFound + 2;
+          data2 = maxFound;
+          data3 = maxFound - 2;
+          motorSpeed = 0;
+          md.setM1Speed(motorSpeed);
+          Serial.println("compare");
+          Serial.print("data 1 is ");
+          Serial.println(data1);
+          Serial.print("data 2 is ");
+          Serial.println(data2);
+          Serial.print("data 3 is ");
+          Serial.println(data3);
+        }
+    
+    if ( (( val < data1) && (val> data3)) && (count == 1)) // checking for max location
+     {
+      if  ( (data == 0) && (pushPullCounter == 1) )
+      {
+             if (preSpeed2 < 0)
+        {
+          motorSpeed = preSpeed2;
+          motorSpeed = motorSpeed + 2*abs(motorSpeed);
+          pushPullCounter = 0;
+          preSpeed2 = 0;    
+          count = 0;        
+          Serial.println("returning in 1sec from Max");         
+        } 
+      }
+      else if ( (data == 1) && (pushPullCounter == 1) )
+      {
+        preSpeed2 = preSpeed2 + motorSpeed;
+        motorSpeed = 0;
+        Serial.println("waiting at max");
+        md.setM1Speed(motorSpeed);
+      }
+     }
+
+     //****************************************
+     if (val < 300) // more robust checking min
+     {
+      int haha  = (val1+val2+val3)/3;
+      preTime  = currentTime;
+      currentTime = millis();
+      timeDiff = timeDiff + (currentTime-preTime);
+      Serial.println("***********");
+      Serial.print("current time diff ");
+      Serial.println(timeDiff);
+      Serial.println("*************");
+      if (timeDiff < 400)
+      {
+        preHa = haha;
+      }
+      else if (timeDiff > 1000)
+      {
+        aftHa = haha;
+        timeDiff = 0;
+        int dataDiff = aftHa - preHa;
+        Serial.print("current data diff ");
+        Serial.println(dataDiff);
+        if (dataDiff < 5)
+        {
+          val4 = minFound;
+        }
+      }
+      
+//      if ( ((val1 > val2) && (val2 > val3)) || ((val1 < val2) && (val2 < val3)) )
+//      {
+//      }
+//      else
+//      {
+//        if (haha < limit)
+//        {
+//          val4 = minFound;
+//        }
+//      }  
+     }
+     //*********************************************
+          //***********************************************
+    if ( (val4 == minFound) && (count == 0)) // checking for min location
+     {
+     if  ( (data == 1) && (pushPullCounter == 0) )
+      {
+             if (preSpeed2 > 0)
+        {
+          motorSpeed = preSpeed2;
+          motorSpeed = 0- motorSpeed; 
+          pushPullCounter++;
+          count = 1;
+          preSpeed2 = 0;
+          val4 = 0; //reset val4 because set to minFound previously, if dont change will stay in here after count reset to 0 in max process
+          maxCounter = 0; // maxCounter to find maxFound
+          maxFound = chosenVolume; // reset maxFound changed by maxcounter loop
+        }
+      }
+      else if (( data == 0) && (pushPullCounter == 0) )
+      {
+        preSpeed2 = motorSpeed + preSpeed2;
+        motorSpeed = 0;
+        Serial.println("waiting at min");                   
+      }
+     }
+   }
+   else
+   {
+    motorSpeed = 0;
+   }
+    //******************************************8
+//    buttonCheck1();
+    md.setM1Speed(motorSpeed);
+  
+  }
