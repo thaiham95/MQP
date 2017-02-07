@@ -204,13 +204,13 @@
   //**High pin will be kept until reach max point, high will keep syringe stay at max
   //**Turn low to travel back to 0ml position
         //********************************************************8
-        if ( (val >= maxFound) && (maxCounter <= 1) )
+        if ( (val >= chosenValue) && (maxCounter <= 1) )
         {
           maxFound = val;
           maxCounter = maxCounter + 1;
-          data1 = maxFound + 5;
+          data1 = maxFound + 2;
           data2 = maxFound;
-          data3 = maxFound - 5;
+          data3 = maxFound - 2;
           Serial.println("compare");
           Serial.print("data 1 is ");
           Serial.println(data1);
