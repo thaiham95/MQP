@@ -70,8 +70,6 @@
   
   void speedInit()
   { 
-      if (Serial.available())
-       {
         Serial.println("please input desired location, must be number");
         char ch;
         counter = 0;
@@ -102,7 +100,6 @@
         chosenVolume = b;
         Serial.println("Location is ");
         Serial.println(b);
-    }
     
             if (val <= minFound)
       {
