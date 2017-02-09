@@ -1,0 +1,436 @@
+  #include "DualMC33926MotorShield.h"
+  #include "ctype.h"
+  #define MINSPEED 160
+  #define MAXSPEED 400
+  #define VOL04   830
+  #define VOL03   708
+  #define VOL02   573
+  #define VOL01   450
+  #define VOL005  372
+  #define VOL002  32
+  #define MINPOS1 293
+  #define MINPOS2 270
+  #define MINPOS3 295
+  DualMC33926MotorShield md;
+  //*** Serial input data
+  int SPEED = 160;
+ char stringB [5]; 
+ char speedString [5];
+ int done = 0;
+ int counter = 0;
+  int trigger = 0;
+  //****** MAIN VARIABLE *****************
+  int chosenVolume = VOL04;
+  int motorSpeed = SPEED;
+  int minFound = MINPOS2;
+  int val = 0;           // variable to store the value read
+  //**********Pin declaration ****************
+  const int analogPin = 2;     // potentiometer wiper (middle terminal) connected to analog pin 3
+  const int pushPullPin = 11;
+  int pushPull = 0;
+  //***********SIDE VARIABLE*********8
+  int togCounter = 0;
+  int inCounter = 1;
+  int reCounter = 1;
+  int dataToggle;
+  int dataRe;
+  int dataIn;
+  int preCount;
+  //************COUNTER VARIABLE***************
+  int count = 0; // synchronize variable between min and max check
+  int first1 = 0; // counter to execute speedInit only one time
+  int preSpeed2 = 0; // save speed so as to set motorspeed to 0 when at min/max
+  int val4 = 0; // dumb value to meet min condition (val4 = minFound)
+  //************STUCK CHECK****************
+  int currentTime = 0; 
+  int preTime = 0;   
+  int timeDiff = 0; // timediff check if over 1sec yet
+  int preHa = 0; // value before 1s
+  int aftHa = 0; // value after 1s
+  //************EXCEED MAX CHECK******************
+  int maxVal = 0; // maxVal is like min4 , just a dumb value to meet max condition
+  int speedTrigger = 0; // save speed before set motor speed to 0
+  int maxCounter = 0; // this counter make the check if exceed max happen once per period, this should be reset when system at min
+  int maxLoopTrigger = 0; // maxloop trigger is to avoid at beginning, current position is higher than desired location and it will stuck at "waiting at max"
+  //**********************************************
+  int tog = 0;
+  //1st cases: max <----- 1023: want to keep it going, if at max, if speed > 0 then do nothing, count must = 1
+  //2nd cases: min <----- max : want to reverse it   , if at min, if speed > 0 then reverse, count must = 0
+  //3rd cases: 0   -----> min : want to keep it going, if at min, if speed < 0 then do nothing, count must = 0
+  //4th cases: min -----> max : want to reverse it   , if at max, if speed < 0 then reverse , count must = 1
+  //5th cases: at min         : want to set count to 0 so that below function will turn it into 1 and not change negative speed
+  //6th cases: at max         : want to set count to 1 so that below function will turn it into 0 and not change positive spee
+    //******************* Main operation ************************
+  //**OPERATION is first syringe needs to travel to min point and wait there, switch at min must be 0
+  //**When the switch on, syringe travel out, pushPullpin is now high
+  //**High pin will be kept until reach max point, high will keep syringe stay at max
+  //**Turn low to travel back to 0ml position
+  //********************************************************8
+  void setup()
+  {
+    Serial.begin(9600);
+    Serial.println("Dual MC33926 Motor Shield");
+    while (! Serial); 
+    pinMode(pushPullPin, INPUT);
+    md.init();
+  }
+ 
+  void loop()
+  {     
+        pushPull = digitalRead(pushPullPin) ;
+        char test = Serial.read();
+        if (test == 'a')
+        {
+          Serial.println("start the system");
+          tog = 1;
+        }
+        else if (test == 'b')
+        {
+          Serial.println("pause the system");
+          tog = 0;
+        }
+     
+    val = analogRead(analogPin);    // read the input pin, need to be before init else init has no val data
+ 
+      if (first1 == 0)
+    {
+      speedInit();
+    }
+
+   if (tog == HIGH)
+   {     
+
+//**********************************************************
+// maxloop trigger is to avoid at beginning, current position is higher than desired location and it will stuck at "waiting at max"
+  if ( (val > chosenVolume) && (maxCounter < 1) && (maxLoopTrigger == 1)) // checking if exceeds the point
+      {
+        speedTrigger = motorSpeed;
+        maxCounter = maxCounter + 1;
+        motorSpeed = 0;
+        maxVal = chosenVolume;
+        md.setM1Speed(motorSpeed);
+        Serial.println("*********************");
+        Serial.println("compare");
+        Serial.println("maxCoubter is ");
+        Serial.println(maxCounter);
+        Serial.println("*********************");
+      }
+    
+   else if ( ( (val == chosenVolume) || (maxVal == chosenVolume)) && (count == 1) ) // checking for max location, count always = 0 so that it never check for max first but go to min to check
+     {
+      if   (pushPull == 0) 
+      {
+             if (preSpeed2 < 0)
+        {
+          motorSpeed = preSpeed2;
+          motorSpeed = motorSpeed + 2*abs(motorSpeed);
+          preSpeed2 = 0;    
+          count = 0;
+          val4 = 0;        
+          Serial.println("returning in 1sec from Max");         
+        } 
+        else if (preSpeed2 == 0)
+        {
+          Serial.print("compare speed is ");
+          Serial.println(speedTrigger);
+          motorSpeed = speedTrigger + 2*abs(speedTrigger);
+          preSpeed2 = 0;    
+          count = 0;
+          val4 = 0;     
+        }
+      }
+      else if (pushPull == 1) 
+      {
+        preSpeed2 = preSpeed2 + motorSpeed;
+        motorSpeed = 0;
+              if (trigger == 0)
+        {
+           Serial.println("waiting at max");   
+        }   
+        maxVal = chosenVolume;
+        md.setM1Speed(motorSpeed);
+      }
+     }
+   else if ( (val4 == minFound) && (count == 0)) // checking for min location
+     {
+     if   (pushPull == 1) 
+      {
+             if (preSpeed2 > 0)
+        {
+          motorSpeed = preSpeed2;
+          motorSpeed = 0- motorSpeed; 
+          count = 1;
+          preSpeed2 = 0;
+          val4 = 0; //reset val4 because set to minFound previously, if dont change will stay in here after count reset to 0 in max process
+          maxVal = 0;
+          maxCounter = 0; // maxCounter to find maxFound
+          maxLoopTrigger = 1;
+        }
+      }
+      else if ( pushPull == 0)
+      {
+        preSpeed2 = motorSpeed + preSpeed2;
+        motorSpeed = 0;
+        if (trigger == 0)
+        {
+           Serial.println("waiting at min");   
+        }                
+      }
+     }
+//***********************************************
+ dataPrint();
+stuckCheck();
+//*********************************************
+
+   }
+   else
+   {
+    motorSpeed = 0;
+   }
+    //******************************************8
+    md.setM1Speed(motorSpeed);
+  
+  }
+//***************************************************8
+
+  void stuckCheck()
+  {
+         if ( (val < 200)|| ( (motorSpeed == 0) && (val >= chosenVolume)) ) // more robust checking min
+     {
+      preTime  = currentTime;
+      currentTime = millis();
+      timeDiff = timeDiff + (currentTime-preTime);
+      if (timeDiff < 400)
+      {
+        preHa = val;
+      }
+      else if (timeDiff > 1000)
+      {
+        aftHa = val;
+        timeDiff = 0;
+        int dataDiff = abs(aftHa - preHa);
+        if (dataDiff < 10)
+        {
+          if (aftHa < 300)
+          {
+            val4 = minFound;
+          }
+          else
+          {
+            maxVal = chosenVolume;
+          }
+        }
+      }
+     }
+  }
+//*************************************
+void dataPrint()
+{
+    if (Serial.available())
+  {
+    char ch = Serial.read();
+    if (ch == 'x')
+    {
+      trigger = 1;
+    }
+    else if (ch == 'a')
+    {
+      trigger = 0;
+    }
+  }
+  
+if (trigger == 1)
+{
+  Serial.println("*********************");
+        Serial.print("count is ");
+      Serial.println(count);
+            Serial.print("maxVal ");
+      Serial.println(maxVal);
+            Serial.print("chosenVolume ");
+      Serial.println(chosenVolume);
+                  Serial.print("val is ");
+      Serial.println(val);
+                        Serial.print("pushPull is ");
+      Serial.println(pushPull);    
+      Serial.print("speed is ");
+      Serial.println(motorSpeed); 
+       Serial.println("*********************");
+       trigger = 3;
+}
+}
+//*******************************************************************
+ void speedInit()
+  { 
+        Serial.println("please input desired location, must be number");
+        char ch;
+        counter = 0;
+        done = 0;     
+        while(done == 0)
+        {
+          ch = Serial.read();
+          if(isdigit(ch) == 1)
+          {
+          stringB[counter] = ch;
+          counter++;
+          Serial.print("enter distance number is ");
+          Serial.println(ch);
+          }
+          else if (isAlpha(ch) == 1)
+          {
+            if (ch == 'x')
+            {
+              Serial.println("done input");
+              done = 1;
+            }
+          }
+        }
+        stringB[counter] = '\0';
+        Serial.println("done, distance is");
+        Serial.println(stringB);
+        int b = atoi(stringB);
+        chosenVolume = b;
+        Serial.println("Location is ");
+        Serial.println(b);
+        done = 0;
+        counter  = 0;
+ //*************************************************************  
+ Serial.println("please input speed, must be number"); 
+        while(done == 0)
+        {
+          ch = Serial.read();
+          if(isdigit(ch) == 1)
+          {
+          speedString[counter] = ch;
+          counter++;
+          Serial.print("enter speed number is ");
+          Serial.println(ch);
+          }
+          else if (isAlpha(ch) == 1)
+          {
+            if (ch == 'x')
+            {
+              Serial.println("done input");
+              done = 1;
+            }
+          }
+        }
+        speedString[counter] = '\0';
+        Serial.println("done, speed is");
+        Serial.println(speedString);
+        int d = atoi(speedString);
+        SPEED = d;
+        Serial.println("converted speed is ");
+        Serial.println(SPEED);
+        done = 0;
+        counter = 0;
+ //****************************************************
+            if (val <= minFound)
+      {
+        motorSpeed = 0-SPEED; // currently below or at min, need to go out cross min and stop at max => want to skip the first = set count to 1
+        count = 1;            
+      }
+      else if  (val >= chosenVolume)
+      {
+        motorSpeed = SPEED;  //  currently above or at max, need to go in cross max and stop at min, but meet max first => want to skip the first = set count to 0
+        count = 0;
+      }
+      else if (val< chosenVolume && val > minFound)
+      {
+        motorSpeed = SPEED; // now moving into,will meet min first and need to reverse, count must = 0 be considered at min
+        count = 0;
+      }
+      first1++;
+      Serial.println("HAHAH");
+      Serial.print("first SPEED is: ");
+      Serial.println(motorSpeed);
+      Serial.print("position is: ");
+      Serial.println(val);
+      md.setM1Speed(motorSpeed);
+  }
+//**********************************************  
+//   void buttonCheck1() //when press should stop the syringe and maintain all old data, need another press to resume
+//  {
+////    dataToggle = digitalRead(toggleStop);
+//    dataRe = digitalRead(reSpeedPin);
+//    dataIn = digitalRead(inSpeedPin);
+//    if  ( (dataToggle == HIGH) && (togCounter == 0) ) // since initialize counter to 0, make sure that button signal is off at beginning else it will stop immediately
+//    {
+//      preSpeed = motorSpeed;
+//      preCount = count;
+//      motorSpeed = 0;
+//      count = 3; // not 0 or 1 so that all data kept same
+//      togCounter++;
+//            inCounter = 1;
+//      reCounter = 1;
+//      Serial.println("********");
+//      Serial.print("save speed is: ");
+//      Serial.println(preSpeed);
+//      Serial.print("save count is: ");
+//      Serial.println(preCount);    
+//      Serial.println("current position");   
+//      Serial.println(val);    
+//      Serial.println("********");
+//      Serial.println();
+//      
+//    }
+//    else if( (dataToggle == HIGH) && (togCounter == 1)) //toggle on
+//    {
+//      if ( (dataIn == LOW) && (inCounter == 0) )
+//      {
+//        if (preSpeed > 0)
+//        {
+//          preSpeed = preSpeed + 10;
+//        }
+//      else
+//      {
+//        preSpeed = preSpeed - 10;
+//      }
+//
+//      Serial.print("in speed modified is ");
+//      Serial.println(preSpeed); 
+//        inCounter++;
+//      }
+//      else if((dataIn == HIGH) && (inCounter == 1))
+//      {
+//        inCounter = 0;
+//      }
+//  
+//      if ( (dataRe == LOW) && (reCounter == 0))
+//      {
+//               if (preSpeed > 0)
+//        {
+//          preSpeed = preSpeed - 10;
+//        }
+//      else
+//      {
+//        preSpeed = preSpeed + 10;
+//      }
+//            Serial.print("re speed modified is ");
+//      Serial.println(preSpeed); 
+//        reCounter++;
+//      }
+//      else if((dataRe == HIGH) && (reCounter == 1))
+//      {
+//        reCounter = 0;
+//      }  
+//    }
+//  
+//    
+//    else if ( (dataToggle == LOW) && (togCounter == 1)) // toggle off
+//    {
+//      motorSpeed = preSpeed;
+//      count      = preCount;
+//      togCounter    = 0;
+//      Serial.println("********");
+//      Serial.print("resume speed is: ");
+//      Serial.println(motorSpeed);
+//      Serial.print("resume count is: ");
+//      Serial.println(count);
+//      Serial.print("pos stop is: ");
+//      Serial.println(val);
+//      Serial.println("********");
+//    }
+//    else
+//    {
+//    }
+//  }
