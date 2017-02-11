@@ -1,0 +1,56 @@
+//Include libraries
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include "DualMC33926MotorShield.h"
+// Data wire is plugged into pin 2 on the Arduino
+#define ONE_WIRE_BUS 2
+// Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
+OneWire oneWire(ONE_WIRE_BUS);
+// Pass our oneWire reference to Dallas Temperature. 
+DallasTemperature sensors(&oneWire);
+DualMC33926MotorShield md;
+int i = 50;
+  int currentTime = 0; 
+  int preTime = 0;   
+  int timeDiff = 0; // timediff check if over 1sec yet
+void setup(void)
+{
+  Serial.begin(9600); //Begin serial communication
+  Serial.println("Arduino Digital Temperature // Serial Monitor Version"); //Print a message
+    Serial.println("Dual MC33926 Motor Shield");
+  md.init();
+  sensors.begin();
+}
+
+void loop(void)
+{ 
+  // Send the command to get temperatures
+  sensors.requestTemperatures();  
+      char ch ;
+    ch =Serial.read();
+    if(ch == 'a')
+    {
+      i = i + 50;
+      Serial.print("speed is ");
+      Serial.println(i);
+    }
+     else   if(ch == 'b')
+    {
+      i = i - 50;
+      Serial.print("speed is ");
+      Serial.println(i);
+    }
+    md.setM1Speed(i);
+    preTime  = currentTime;
+    currentTime = millis();
+    timeDiff = timeDiff + (currentTime-preTime);
+    if (timeDiff > 1000)
+      {
+         Serial.print("Temperature is: ");
+         Serial.println(sensors.getTempCByIndex(0)); // Why "byIndex"? You can have more than one IC on the same bus. 0 refers to the first IC on the wire
+         timeDiff = 0;
+      }
+
+  //Update value every 1 sec.
+ 
+}
