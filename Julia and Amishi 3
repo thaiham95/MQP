@@ -28,9 +28,9 @@
   const int analogPin = 2;     // potentiometer wiper (middle terminal) connected to analog pin 3
   const int toggleStop = 5;
   const int inSpeedPin = 6;
-  const int reSpeedPin = 13;
+//  const int reSpeedPin = 13;
   const int pushPullPin = 11;
-  const int pausePin = 13;
+//  const int pausePin = 13;
   //******************************
   int chosenMin = MINPOS2;
   int val = 0;           // variable to store the value read
