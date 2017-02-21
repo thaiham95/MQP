@@ -1,36 +1,63 @@
-  int button1 = 6;     // the number of the pushbutton pin
-  int button2 = 5;
-  int button3 = 4;
-  int button4 = 3;
-  int led1 = 13;
-  int led2 =  12;      // the number of the LED pin
-  int led3 = 11;
-  int led4 = 10;
-  int butArray[4] = {button1,button2,button3,button4};
-  int ledArray[4] = {led1,led2,led3,led4};
-  void setup() {
+  const int led1 = 9;
+  const int led2 =  10;      // the number of the LED pin
+  const int led3 = 11;
+  const int led4 = 12;
+  const int ledArray[4] = {led1,led2,led3,led4};
+  char charCount = 0;
+  int a = 0;
+ String save = "";
+ String valve = "";
+ String valveArray[4] = {"valve0", "valve1", "valve2", "valve3"};
+  void setup() 
+  {
+    Serial.begin(9600);
     pinMode(led1, OUTPUT);      
-    pinMode(button1, INPUT);
     pinMode(led2, OUTPUT);      
-    pinMode(button2, INPUT); 
     pinMode(led3, OUTPUT);      
-    pinMode(button3, INPUT); 
-    pinMode(led4, OUTPUT);      
-    pinMode(button4, INPUT);      
+    pinMode(led4, OUTPUT);    
+    Serial.println("Enter your name.");  
   }
-  
-  void loop(){
-  
-     for (int i=0; i < 4; i++){
+
+  void stringInput()
+  {
+    if (Serial.available() > 0) 
+    {    // is a character available?
+    charCount = Serial.read();       // get the character
+    
+    if (charCount != '\n') {
+      // a character of the string was received
+      valve += charCount;
+    }
+    else 
+    {
+      // end of string
+      Serial.print("Welcome ");
+      a = valve.toInt();
+      save = valve;
+      valve = "";                // clear the string for reuse
+      Serial.println(save);
+      Serial.println("Enter your name.");
+    }
+  } // end:
+  }
+
+  void loopValve()
+  {
+    for (int i=0; i < 4; i++)
+    {
       
-        if (digitalRead(butArray[i]) == HIGH)
+        if (save == valveArray[i])
           {
           digitalWrite(ledArray[i],HIGH);
           }
-            else
-              {
-              digitalWrite(ledArray[i],LOW);
-              }
-    
+          else
+         {
+           digitalWrite(ledArray[i],LOW);
+         }
     }
+  }
+  void loop()
+  {
+      stringInput();
+      loopValve();
   }
