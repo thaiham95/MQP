@@ -28,9 +28,6 @@
   const int analogPin = 2;     // potentiometer wiper (middle terminal) connected to analog pin 3
   const int toggleStop = 5;
   const int inSpeedPin = 6;
-  const int reSpeedPin = 13;
-  const int pushPullPin = 11;
-  const int pausePin = 13;
   //******************************
   int chosenMin = MINPOS2;
   int val = 0;           // variable to store the value read
@@ -79,12 +76,43 @@ int counter4 = 0;
   
   void speedInit()
   { 
-        val = analogRead(analogPin);  
-        Serial.println("please input desired volume, must be number"); 
+        val = analogRead(analogPin); 
         char ch;
         counter = 0;
         done = 0;
-  //*********************      
+        int done2 = 0;
+  //********************* AIR PUMP **************************
+  Serial.println("Do you want to use air pump?");
+          while(done == 0)
+        {
+          ch = Serial.read();
+          if (isAlpha(ch) == 1)
+          {
+            if (ch == 'y')
+            {
+              Serial.println("YES");
+              while(done2 == 0) 
+              {
+                ch = Serial.read();
+                digitalWrite(11,HIGH);
+                if (ch == 's')
+                {
+                  done2 = 1;
+                  digitalWrite(11,LOW);
+                }
+              }
+              done = 1;
+            }
+            else if (ch == 'n')
+            {
+              Serial.println("NO");
+              done = 1;
+            }
+          }
+        } 
+        done = 0;      
+  //********************* VOLUME INPUT ****************************   
+  Serial.println("please input desired volume, must be number");   
         while(done == 0)
         {
           ch = Serial.read();
@@ -112,10 +140,42 @@ int counter4 = 0;
           Serial.println("52 ul is min");
           inputVolume = 52;
         }
-        Serial.print("Input volume is ");
+        Serial.print("Input volume is: ");
         Serial.print(inputVolume,4);
         Serial.println(" ul");
 //*********************** CONVERSION START ****************************
+        float a1 = 0.9863;
+        float b1 = 13.911;
+        float actOut = a1*inputVolume + b1;
+        Serial.print("actual output is: ");
+        Serial.print(actOut,3);
+        Serial.println(" ul");
+        if (actOut > inputVolume)
+        {
+          float offSet = actOut - inputVolume;
+          inputVolume = inputVolume - offSet;
+          Serial.print("actual output is larger than desired output, desired volume reduced to: ");
+          Serial.print(inputVolume, 4);
+          Serial.println(" ul");
+        }
+        else if (actOut < inputVolume)
+        {
+          float offSet1 = inputVolume - actOut;
+          inputVolume = inputVolume + offSet1;
+          Serial.print("actual output smaller than desired output, desired volume increased to: ");
+          Serial.print(inputVolume, 4);
+          Serial.println(" ul");
+        }
+        else
+        {
+          Serial.println("actual volume equals desired volume ");
+        }
+
+          if (inputVolume < 52)
+        {
+          Serial.println("52 ul is min");
+          inputVolume = 52;
+        }
         float a = 51.974;
         float b = 0.7442;
         float location = (inputVolume - a)/b;
@@ -195,12 +255,13 @@ if (val < chosenVolume)
   {
     Serial.begin(9600);
     Serial.println("Dual MC33926 Motor Shield");
+    pinMode(11,OUTPUT);
     while (! Serial); 
     md.init();
   }
   void loop()
   { 
-
+    digitalWrite(11,LOW);
     val = analogRead(analogPin);    // read the input pin, need to be before init else init has no val data
     if (speedInitCounter == 0)
     {
