@@ -17,7 +17,40 @@ int timeDiff = 0; // timediff check if over 1sec yet
 //********************
 float prevTemp = 0;
 double Setpoint, Input, Output;
-PID myPID(&Input, &Output, &Setpoint,50,0,0, DIRECT);
+PID myPID(&Input, &Output, &Setpoint,70,0,0, DIRECT);
+void setTemp()
+{
+  int done = 0;
+  int counter = 0;
+  char stringB [5]; 
+  char ch;
+    Serial.println("please choose temperature, must be number");   
+        while(done == 0)
+        {
+          ch = Serial.read();
+          if((isdigit(ch) == 1) || (ch == '.') )
+          {
+          stringB[counter] = ch;
+          counter++;
+          Serial.print("entered temperature is ");
+          Serial.println(ch);
+          }
+          else if (isAlpha(ch) == 1)
+          {
+            if (ch == 'x')
+            {
+              Serial.println("done input");
+              done = 1;
+            }
+          }
+        }
+        stringB[counter] = '\0';
+        int temp = atoi(stringB);
+        Setpoint = (double)temp;
+        Serial.print("Input Temp is: ");
+        Serial.print(Setpoint,4);
+        Serial.println("C");
+}
 void setup(void)
 {
   Serial.begin(9600); //Begin serial communication
@@ -25,9 +58,11 @@ void setup(void)
   Serial.println("Dual MC33926 Motor Shield");
   md.init();
   sensors.begin();
-  Setpoint = 37;
+  Setpoint = 65;
   myPID.SetOutputLimits(0, 400);
   myPID.SetMode(AUTOMATIC);
+  pinMode(30, OUTPUT);
+  setTemp();
   //You tell us that Output is always zero, but you don't tell us anything about Setpoint of Input.  
   //If input is uniformly greater than Setpoint, Output will always be zero.  It looks like you're reading the setpoiont from an analog input.
 }
@@ -51,7 +86,15 @@ void loop(void)
       Serial.print("speed is ");
       Serial.println(i);
     }
-
+    else if (ch == 'f')
+    {
+      digitalWrite(30,HIGH);
+    }
+        else if (ch == 's')
+    {
+      digitalWrite(30,LOW);
+    }
+    
   //Update value every 1 sec.
   int convSpeed = (int)Output;
   prevTemp = sensors.getTempCByIndex(0);
@@ -74,6 +117,7 @@ void loop(void)
   //************
       preTime  = currentTime;
     currentTime = millis();
+    int actualTemp = prevTemp + 2;
     timeDiff = timeDiff + (currentTime-preTime);
     if (timeDiff > 1000)
       {
