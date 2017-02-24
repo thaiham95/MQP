@@ -14,10 +14,15 @@ int i = 50;
 int currentTime = 0; 
 int preTime = 0;   
 int timeDiff = 0; // timediff check if over 1sec yet
+unsigned long time1;
+int trigger = 0;
+int inTrigger = 0;
 //********************
 float prevTemp = 0;
 double Setpoint, Input, Output;
-PID myPID(&Input, &Output, &Setpoint,70,0,0, DIRECT);
+int pidCounter = 0;
+int pidCounter2 = 0;
+PID myPID(&Input, &Output, &Setpoint,55,0,0, DIRECT);
 void setTemp()
 {
   int done = 0;
@@ -47,9 +52,21 @@ void setTemp()
         stringB[counter] = '\0';
         int temp = atoi(stringB);
         Setpoint = (double)temp;
+
+        prevTemp = sensors.getTempCByIndex(0);
+        if (prevTemp < Setpoint)
+        {
+          inTrigger = 1;
+        }
+        else
+        {
+          inTrigger = 0;
+        }
         Serial.print("Input Temp is: ");
         Serial.print(Setpoint,4);
         Serial.println("C");
+        Serial.print("inTrigger is ");
+        Serial.println(inTrigger);
 }
 void setup(void)
 {
@@ -86,11 +103,11 @@ void loop(void)
       Serial.print("speed is ");
       Serial.println(i);
     }
-    else if (ch == 'f')
+    else if ( (ch == 'f') || (trigger == 1))
     {
       digitalWrite(30,HIGH);
     }
-        else if (ch == 's')
+        else if (ch == 's' || (trigger == 0))
     {
       digitalWrite(30,LOW);
     }
@@ -100,32 +117,60 @@ void loop(void)
   prevTemp = sensors.getTempCByIndex(0);
   Input = (double)prevTemp;
   myPID.Compute();
-  if (convSpeed > 400)
+  //***************************************
+    if (prevTemp < Setpoint && inTrigger == 1)
+    {
+    trigger = 0;
+      if (pidCounter == 0)
   {
-    Serial.println("cant above 400");
-    convSpeed = 400;
+    Serial.println("direct");
+    pidCounter++;
+    myPID.SetControllerDirection(DIRECT);
   }
-  else if (convSpeed < 0)
+    }
+  else if (prevTemp > Setpoint && prevTemp > 24 && inTrigger == 0)
   {
-    Serial.println("cant below 0");
-    convSpeed = 0;
-  }
-  else
+    if (pidCounter == 0)
   {
+    Serial.println("reverse");
+    pidCounter++;
+     myPID.SetControllerDirection(REVERSE);
   }
+  convSpeed = 0;
+  trigger = 1;
+  }
+
+  else  if (prevTemp > Setpoint && prevTemp <= 24 && inTrigger == 0)
+  {
+    trigger = 1;
+    convSpeed = 0-abs(convSpeed);
+    if (pidCounter2 == 0)
+    {
+    Serial.println("Start cooling");
+     myPID.SetControllerDirection(REVERSE);
+      pidCounter2++;
+    }
+  }
+  //*****************************************
    md.setM1Speed(convSpeed);
   //************
       preTime  = currentTime;
     currentTime = millis();
+    time1 = millis();
+    unsigned long haha = 4294935281;
     int actualTemp = prevTemp + 2;
     timeDiff = timeDiff + (currentTime-preTime);
-    if (timeDiff > 1000)
+    if (timeDiff > 500)
       {
-         Serial.print("Temperature is: ");
-         Serial.println(prevTemp); // Why "byIndex"? You can have more than one IC on the same bus. 0 refers to the first IC on the wire
+         Serial.print(prevTemp); // Why "byIndex"? You can have more than one IC on the same bus. 0 refers to the first IC on the wire
          timeDiff = 0;
-         Serial.print("Speed is: ");
-         Serial.println(convSpeed); // Why "byIndex"? You can have more than one IC on the same bus. 0 refers to the first IC on the wire
+         Serial.print(" ");
+         Serial.print(convSpeed); // Why "byIndex"? You can have more than one IC on the same bus. 0 refers to the first IC on the wire
+          Serial.print(" ");
+         Serial.println(md.getM1CurrentMilliamps());
+//         Serial.print("Time is: ");
+//         Serial.println(time1);
+//         Serial.println(haha);
       }
   
 }
