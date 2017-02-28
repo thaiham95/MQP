@@ -1,0 +1,191 @@
+//Include libraries
+// 32 input can only reach 32.5 only, while in the real temperature is 35.2, which can drift to 36, fluid then is 35.3
+//Therefore, desired input is 33.2, which can be 36.4C, which can drift to 37.2C, fluid then is 36.5C  
+//4mins to stable from 25C to 36C.
+// final input is 34.5C
+#include <PID_v1.h>
+#include "DualMC33926MotorShield.h"
+DualMC33926MotorShield md;
+int i = 50;
+int currentTime = 0; 
+int preTime = 0;   
+int timeDiff = 0; // timediff check if over 1sec yet
+unsigned long time1;
+int trigger = 0;
+int inTrigger = 0;
+int val;
+int tempPin = 3;
+//********************
+float prevTemp = 0;
+double Setpoint, Input, Output;
+double Kp = 70;
+double Ki = 0;
+double Kd = 0;
+int pidCounter = 0;
+int pidCounter2 = 0;
+PID myPID(&Input, &Output, &Setpoint,Kp,Ki,Kd, DIRECT);
+float temperature()
+{
+val = analogRead(tempPin);
+float mv = ( val/1024.0)*5000; 
+float cel = mv/10;
+float farh = (cel*9)/5 + 32;
+return cel;
+Serial.print("TEMPRATURE = ");
+Serial.print(cel);
+Serial.print("*C");
+Serial.println();
+}
+
+void setTemp()
+{
+  int done = 0;
+  int counter = 0;
+  char stringB [5]; 
+  char ch;
+    Serial.println("please choose temperature, must be number");   
+        while(done == 0)
+        {
+          ch = Serial.read();
+          if((isdigit(ch) == 1) || (ch == '.') )
+          {
+          stringB[counter] = ch;
+          counter++;
+          Serial.print("entered temperature is ");
+          Serial.println(ch);
+          }
+          else if (isAlpha(ch) == 1)
+          {
+            if (ch == 'x')
+            {
+              Serial.println("done input");
+              done = 1;
+            }
+          }
+        }
+        stringB[counter] = '\0';
+        double temp = atof(stringB);
+        Setpoint = (double)temp;
+
+        prevTemp = temperature();
+        if (prevTemp < Setpoint)
+        {
+          inTrigger = 1;
+        }
+        else
+        {
+          inTrigger = 0;
+        }
+        Serial.print("Input Temp is: ");
+        Serial.print(Setpoint,4);
+        Serial.println("C");
+        Serial.print("inTrigger is ");
+        Serial.println(inTrigger);
+}
+void setup(void)
+{
+  Serial.begin(9600); //Begin serial communication
+  Serial.println("Arduino Digital Temperature // Serial Monitor Version"); //Print a message
+  Serial.println("Dual MC33926 Motor Shield");
+  md.init();
+  Setpoint = 65;
+  myPID.SetOutputLimits(0, 400);
+  myPID.SetMode(AUTOMATIC);
+  pinMode(30, OUTPUT);
+  setTemp();
+  //You tell us that Output is always zero, but you don't tell us anything about Setpoint of Input.  
+  //If input is uniformly greater than Setpoint, Output will always be zero.  It looks like you're reading the setpoiont from an analog input.
+}
+
+void loop(void)
+{ 
+  // Send the command to get temperatures
+  char ch ;
+  
+    ch =Serial.read();
+    if(ch == 'a')
+    {
+      i = i + 20;
+      Serial.print("speed is ");
+      Serial.println(i);
+    }
+     else   if(ch == 'b')
+    {
+      i = i - 20;
+      Serial.print("speed is ");
+      Serial.println(i);
+    }
+    else if ( (ch == 'f') || (trigger == 1))
+    {
+      digitalWrite(30,HIGH);
+    }
+        else if (ch == 's' || (trigger == 0))
+    {
+      digitalWrite(30,LOW);
+    }
+   
+    if (ch == 'q')
+    {
+      setTemp();
+      pidCounter2 = 0;
+      pidCounter = 0;
+    }
+    
+  //Update value every 0.5 sec.
+  myPID.Compute();
+  int convSpeed = (int)Output;
+  prevTemp = temperature();
+  Input = (double)prevTemp;
+  //***************************************
+    if (prevTemp < Setpoint && inTrigger == 1)
+    {
+    trigger = 0;
+      if (pidCounter == 0)
+  {
+    Serial.println("direct");
+    pidCounter++;
+    myPID.SetControllerDirection(DIRECT);
+  }
+    }
+  else if ( (prevTemp > Setpoint) && ((prevTemp > 23) && (inTrigger == 0)))
+  {
+    if (pidCounter == 0)
+  {
+    Serial.println("reverse");
+    pidCounter++;
+     myPID.SetControllerDirection(REVERSE);
+  }
+  convSpeed = 0;
+  trigger = 1;
+  }
+
+  else  if ( (prevTemp > Setpoint) && ((prevTemp <= 23) && (inTrigger == 0)))
+  {
+    trigger = 1;
+    convSpeed = 0-abs(convSpeed);
+    if (pidCounter2 == 0)
+    {
+    Serial.println("Start cooling");
+     myPID.SetControllerDirection(REVERSE);
+      pidCounter2++;
+    }
+  }
+  //*****************************************
+   md.setM1Speed(convSpeed);
+  //************
+      preTime  = currentTime;
+     float realTemp = prevTemp + 3;
+    currentTime = millis();
+    time1 = millis();
+    timeDiff = timeDiff + (currentTime-preTime);
+    if (timeDiff > 500)
+      {
+         Serial.print(realTemp,3); // Why "byIndex"? You can have more than one IC on the same bus. 0 refers to the first IC on the wire
+         timeDiff = 0;
+         Serial.print(" ");
+         Serial.print(convSpeed); // Why "byIndex"? You can have more than one IC on the same bus. 0 refers to the first IC on the wire
+          Serial.print(" ");
+         Serial.println(md.getM1CurrentMilliamps());
+      }
+  
+}
