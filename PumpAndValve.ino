@@ -1,0 +1,391 @@
+  #include "DualMC33926MotorShield.h"
+  #include "ctype.h"
+  #define MINchosenSpeed 160
+  #define MAXchosenSpeed 400
+  #define VOL04   830
+  #define VOL03   708
+  #define VOL02   573
+  #define VOL01   450
+  #define VOL005  372
+  #define VOL002  32
+  #define MINPOS1 293
+  #define MINPOS2 270
+  #define MINPOS3 295
+  DualMC33926MotorShield md;
+  //*** Serial input data
+  int chosenSpeed = 160;
+ char stringB [5]; 
+ char speedString [5];
+ int done = 0;
+ int counter = 0;
+  //**********************
+  unsigned long time1;
+  int chosenVolume = VOL04;
+  int motorSpeed = chosenSpeed;
+  unsigned long last = 0;
+  unsigned long diff = 0;
+  //**********Pin declaration
+  const int analogPin = 2;     // potentiometer wiper (middle terminal) connected to analog pin 3
+  //******************************
+  int chosenMin = MINPOS2;
+  int val = 0;           // variable to store the value read
+  int prePos = 0;
+  int count = 0;
+  int first1 = 0;
+  int togCounter = 0;
+  int inCounter = 1;
+  int reCounter = 1;
+  int preSpeed;
+  int preCount;
+  int preSpeed2 = 0;
+  int dataToggle;
+  int dataRe;
+  int dataIn;
+  int val4 = 0;
+  int chosenVal = 0;
+  int preSpeed3 = 0;
+  int loopCounter1 = 0;
+  int maxCounter = 0;
+  int currentTime = 0;
+  int preTime = 0;
+  int timeDiff = 0;
+  int preHa = 0;
+  int aftHa = 0;
+  int maxVal = 0;
+  int speedTrigger = 0;
+  int maxLoopTrigger = 0;
+  int tog = 0;
+  int minChosen = 0;
+  int speedInitCounter = 0;
+  int wantOut = 0;
+ int wantIn = 0;
+   int trigger = 0;
+  int ten = 0;
+int counter4 = 0;
+//**************** VALVE DATA ****************88
+  const int led1 = 5;
+  const int led2 =  6;      // the number of the LED pin
+  const int led3 = 8;
+  const int led4 = 10;
+  const int ledArray[4] = {led1,led2,led3,led4};
+  char charCount = 0;
+  int a = 0;
+ String save = "";
+ String valve = "";
+ String valveArray[4] = {"valve0", "valve1", "valve2", "valve3"};
+//**********************************************
+  void stopIfFault()
+  {
+    if (md.getFault())
+    {
+      Serial.println("fault");
+      while(1);
+    }
+  }
+//**************** VALVE FUNC *********************8
+    void stringInput()
+  {
+    char valve;
+    int doneValve = 0;
+    Serial.println("please choose valve");
+    while (doneValve == 0)
+    {
+      valve = Serial.read();
+      if (valve == '0')
+      {
+        save = "valve0";
+        Serial.println("valve0 used ");
+        doneValve = 1;
+      }
+      else if (valve == '1')
+      {
+        save = "valve1";
+        Serial.println("valve1 used ");
+        doneValve = 1;
+      }
+      else if (valve == '2')
+      {
+        save = "valve2";
+        Serial.println("valve2 used ");
+        doneValve = 1;
+      }
+      else if (valve == '3')
+      {
+        save = "valve3";
+        Serial.println("valve3 used ");
+        doneValve = 1;
+      }
+      else if (valve == 'n')
+      {
+        save = "dsfasdfa";
+        Serial.println("no valve used ");
+        doneValve = 1;
+      }
+    } 
+  }
+
+  void loopValve()
+  {
+    for (int i=0; i < 4; i++)
+    {
+      
+        if (save == valveArray[i])
+          {
+          digitalWrite(ledArray[i],HIGH);
+          }
+          else
+         {
+           digitalWrite(ledArray[i],LOW);
+         }
+    }
+  }  
+//***********************************************  
+  void speedInit()
+  { 
+        val = analogRead(analogPin); 
+        char ch;
+        counter = 0;
+        done = 0;
+        int done2 = 0;
+  //********************* VALVE ****************************
+  stringInput();
+//  //********************* AIR PUMP **************************
+//  Serial.println("Do you want to use air pump?");
+//          while(done == 0)
+//        {
+//          loopValve();
+//          ch = Serial.read();
+//          if (isAlpha(ch) == 1)
+//          {
+//            if (ch == 'y')
+//            {
+//              Serial.println("YES");
+//              while(done2 == 0) 
+//              {
+//                ch = Serial.read();
+//                digitalWrite(11,HIGH);
+//                if (ch == 's')
+//                {
+//                  done2 = 1;
+//                  digitalWrite(11,LOW);
+//                }
+//              }
+//              done = 1;
+//            }
+//            else if (ch == 'n')
+//            {
+//              Serial.println("NO");
+//              done = 1;
+//            }
+//          }
+//        } 
+        done = 0;      
+  //********************* VOLUME INPUT ****************************   
+  Serial.println("please input desired volume, must be number");   
+        while(done == 0)
+        {
+          loopValve();
+          ch = Serial.read();
+          if((isdigit(ch) == 1) || (ch == '.') )
+          {
+          stringB[counter] = ch;
+          counter++;
+          Serial.print("enter volume number is ");
+          Serial.println(ch);
+          }
+          else if (isAlpha(ch) == 1)
+          {
+            if (ch == 'x')
+            {
+              Serial.println("done input");
+              done = 1;
+            }
+          }
+        }
+        stringB[counter] = '\0';
+        float inputVolume = atof(stringB);
+        int compareVolume = atoi(stringB);
+        if (compareVolume < 52)
+        {
+          Serial.println("52 ul is min");
+          inputVolume = 52;
+        }
+        Serial.print("Input volume is: ");
+        Serial.print(inputVolume,4);
+        Serial.println(" ul");
+//*********************** CONVERSION START ****************************
+        float a1 = 0.9863;
+        float b1 = 13.911;
+        float actOut = a1*inputVolume + b1;
+        Serial.print("actual output is: ");
+        Serial.print(actOut,3);
+        Serial.println(" ul");
+        if (actOut > inputVolume)
+        {
+          float offSet = actOut - inputVolume;
+          inputVolume = inputVolume - offSet;
+          Serial.print("actual output is larger than desired output, desired volume reduced to: ");
+          Serial.print(inputVolume, 4);
+          Serial.println(" ul");
+        }
+        else if (actOut < inputVolume)
+        {
+          float offSet1 = inputVolume - actOut;
+          inputVolume = inputVolume + offSet1;
+          Serial.print("actual output smaller than desired output, desired volume increased to: ");
+          Serial.print(inputVolume, 4);
+          Serial.println(" ul");
+        }
+        else
+        {
+          Serial.println("actual volume equals desired volume ");
+        }
+
+          if (inputVolume < 52)
+        {
+          Serial.println("52 ul is min");
+          inputVolume = 52;
+        }
+        float a = 51.974;
+        float b = 0.7442;
+        float location = (inputVolume - a)/b;
+        Serial.print("Correspond location is ");
+        Serial.println(location,4);
+        chosenVolume = (int)location; // distance always get round to 1 less 6.8 -> 6
+        Serial.print("integer Location is ");
+        Serial.println(chosenVolume);
+        done = 0;
+        counter  = 0;
+ //******************************  
+ if (first1 == 0)
+ {
+   Serial.println("please input speed, must be number"); 
+        while(done == 0)
+        {
+          ch = Serial.read();
+          if(isdigit(ch) == 1)
+          {
+          speedString[counter] = ch;
+          counter++;
+          Serial.print("enter speed number is ");
+          Serial.println(ch);
+          }
+          else if (isAlpha(ch) == 1)
+          {
+            if (ch == 'x')
+            {
+              Serial.println("done input");
+              done = 1;
+            }
+          }
+        }
+        speedString[counter] = '\0';
+        int d = atoi(speedString);
+        chosenSpeed = d;
+        done = 0;
+        counter = 0;
+ }
+ //****************************
+if (val < chosenVolume)
+      {
+          Serial.println("moving out");
+          wantOut = 1;
+          motorSpeed = 0 - chosenSpeed; 
+      }
+      else if  (val > chosenVolume)
+      {
+        Serial.println("moving in");
+        wantIn = 1;
+        motorSpeed = chosenSpeed;
+      }
+      else if (val == chosenVolume)
+      {
+        motorSpeed = 0; // now moving into,will meet min first and need to reverse, count must = 0 be considered at min
+        Serial.println("already at desired location");
+      } 
+ //******************************
+      first1++;
+      Serial.println("******************************");
+      Serial.print("ChosenSpeed is: ");
+      Serial.println(motorSpeed);
+      Serial.print("current position is: ");
+      Serial.println(val);
+      Serial.print("desired location is: ");
+      Serial.println(chosenVolume);
+      Serial.print("want ous is ");
+      Serial.println(wantOut);
+      Serial.print("wantin is ");
+      Serial.println(wantIn);
+      Serial.println("******************************");
+      md.setM1Speed(motorSpeed);
+  }
+   
+
+  void setup()
+  {
+    Serial.begin(9600);
+    Serial.println("Dual MC33926 Motor Shield");
+    pinMode(11,OUTPUT);
+    pinMode(led1, OUTPUT);      
+    pinMode(led2, OUTPUT);      
+    pinMode(led3, OUTPUT);      
+    pinMode(led4, OUTPUT);    
+    while (! Serial); 
+    md.init();
+  }
+  void loop()
+  { 
+    digitalWrite(11,LOW);
+    val = analogRead(analogPin);    // read the input pin, need to be before init else init has no val data
+    if (speedInitCounter == 0)
+    {
+      speedInit();
+      speedInitCounter++;
+    }
+
+     if (val < chosenVolume)
+      {
+        if (wantOut)
+        {
+            motorSpeed = 0 - chosenSpeed; // currently below or at min, need to go out cross min and stop at max => want to skip the first = set count to 1       
+            wantIn = 0;
+        }
+        else if (wantOut == 0)
+        {
+          motorSpeed = 0;
+          md.setM1Speed(motorSpeed);
+          wantIn = 0;
+        }
+      }
+      else if  (val > chosenVolume)
+      {
+        if (wantIn)
+        {
+        motorSpeed = chosenSpeed;  //  currently above or at max, need to go in cross max and stop at min, but meet max first => want to skip the first = set count to 0
+        wantOut = 0;
+        }
+        else if (wantIn == 0)
+        {
+          motorSpeed = 0;
+        md.setM1Speed(motorSpeed);
+          counter4 ++;
+          wantOut = 0;
+        }
+      }
+      else if (val == chosenVolume)
+      {
+        motorSpeed = 0; // now moving into,will meet min first and need to reverse, count must = 0 be considered at min
+        wantOut = 0;
+        wantIn = 0;
+        md.setM1Speed(motorSpeed);
+      } 
+
+       if (motorSpeed == 0)
+      {
+        speedInit();
+      }
+    loopValve();  
+    md.setM1Speed(motorSpeed);
+  }
+
+
